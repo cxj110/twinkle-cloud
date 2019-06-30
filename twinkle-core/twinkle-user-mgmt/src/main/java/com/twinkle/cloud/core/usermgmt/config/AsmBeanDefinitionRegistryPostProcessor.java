@@ -34,38 +34,37 @@ public class AsmBeanDefinitionRegistryPostProcessor implements BeanDefinitionReg
     public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
     // 注册Bean定义，容器根据定义返回bean
         log.info("Going to load customized rest controller.");
-
-        try {
-            // 获取文件流
-            ClassPathResource resource = new ClassPathResource("connector" + File.separator + "Hello2Controller.java");
-            // 获取文件
-            InputStream inputStream = resource.getInputStream();
-            File file = resource.getFile();
-            String content = FileUtils.readFileToString(file);
-            String fullName = "com.twinkle.cloud.core.usermgmt.controller.Hello2Controller";
-            String controllerJava = "Hello2Controller.java";
-            //动态编译class
-            JavaStringCompiler compiler = new JavaStringCompiler();
-            Map<String, String> tempContentMap = new HashMap<>();
-            tempContentMap.put(controllerJava, content);
-            Map<String, byte[]> results = compiler.compile(tempContentMap);
-
-            AsmInput tempInput = new AsmInput(fullName, results.get(fullName));
-
-
-
-            //加载class
-            Class<?> clzMul = compiler.loadClass(fullName, results);
-            clzMul.toGenericString();
-            //构造bean定义
-            BeanDefinitionBuilder beanDefinitionBuilder = BeanDefinitionBuilder
-                    .genericBeanDefinition(clzMul);
-            BeanDefinition beanDefinition = beanDefinitionBuilder.getRawBeanDefinition();
-            //注册bean定义
-            registry.registerBeanDefinition("hellController2", beanDefinition);
-        } catch (Exception ex) {
-            log.error("The com.twinkle.cloud.common.asm.block.exception:", ex);
-        }
+//
+//        try {
+//            // 获取文件流
+//            ClassPathResource resource = new ClassPathResource("connector" + File.separator + "Hello2Controller.java");
+//            // 获取文件
+//            InputStream inputStream = resource.getInputStream();
+//            File file = resource.getFile();
+//            String content = FileUtils.readFileToString(file);
+//            String fullName = "com.twinkle.cloud.core.usermgmt.controller.Hello2Controller";
+//            String controllerJava = "Hello2Controller.java";
+//            //动态编译class
+//            JavaStringCompiler compiler = new JavaStringCompiler();
+//            Map<String, String> tempContentMap = new HashMap<>();
+//            tempContentMap.put(controllerJava, content);
+//            Map<String, byte[]> results = compiler.compile(tempContentMap);
+//
+//            AsmInput tempInput = new AsmInput(fullName, results.get(fullName));
+//
+//
+//            //加载class
+//            Class<?> clzMul = compiler.loadClass(fullName, results);
+//            clzMul.toGenericString();
+//            //构造bean定义
+//            BeanDefinitionBuilder beanDefinitionBuilder = BeanDefinitionBuilder
+//                    .genericBeanDefinition(clzMul);
+//            BeanDefinition beanDefinition = beanDefinitionBuilder.getRawBeanDefinition();
+//            //注册bean定义
+//            registry.registerBeanDefinition("hellController2", beanDefinition);
+//        } catch (Exception ex) {
+//            log.error("The com.twinkle.cloud.common.asm.block.exception:", ex);
+//        }
         log.info("Register hello2 successfully.");
     }
 
