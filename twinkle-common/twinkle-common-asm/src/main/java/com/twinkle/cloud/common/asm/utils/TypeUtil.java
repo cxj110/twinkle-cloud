@@ -1,7 +1,10 @@
 package com.twinkle.cloud.common.asm.utils;
 
 import com.twinkle.cloud.common.asm.constants.AsmConstant;
+import com.twinkle.cloud.common.asm.data.TypeDefine;
+import lombok.extern.slf4j.Slf4j;
 import org.objectweb.asm.Type;
+import org.springframework.util.CollectionUtils;
 
 import java.lang.reflect.Field;
 
@@ -10,6 +13,7 @@ import java.lang.reflect.Field;
  * 
  * @author Matt
  */
+@Slf4j
 public class TypeUtil {
 	/**
 	 * private sort denoting an object type, such as "com/Example" versus the
@@ -163,5 +167,37 @@ public class TypeUtil {
 		}
 		// No simplification
 		return toString(type);
+	}
+
+	/**
+	 * Get the detail Signature for some Type.
+	 *
+	 * @param _typeDefine
+	 * @return
+	 */
+	public static String getTypeSignature(TypeDefine _typeDefine) {
+		StringBuilder tempBuilder = new StringBuilder();
+		if(_typeDefine == null || _typeDefine.getTypeClass() == null) {
+			return tempBuilder.toString();
+		}
+		String tempTypeSignature = Type.getDescriptor(_typeDefine.getTypeClass());
+		if(CollectionUtils.isEmpty(_typeDefine.getGenericTypeList())) {
+			tempBuilder.append(tempTypeSignature);
+			return tempBuilder.toString();
+		}
+		//
+		if(!tempTypeSignature.endsWith(";")) {
+			tempBuilder.append(tempTypeSignature);
+			log.warn("The main class {} does not support generic classes.", _typeDefine.getTypeClass());
+			return tempTypeSignature;
+		}
+		tempBuilder.append(tempTypeSignature.substring(0, tempTypeSignature.length() - 1));
+		tempBuilder.append("<");
+		for(int i = 0; i< _typeDefine.getGenericTypeList().size(); i++) {
+			TypeDefine tempTypeDefine = _typeDefine.getGenericTypeList().get(i);
+			tempBuilder.append(getTypeSignature(tempTypeDefine));
+		}
+		tempBuilder.append(">;");
+		return tempBuilder.toString();
 	}
 }
