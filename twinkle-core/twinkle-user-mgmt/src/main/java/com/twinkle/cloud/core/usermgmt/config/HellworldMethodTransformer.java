@@ -29,26 +29,19 @@ public class HellworldMethodTransformer extends AddMethodTransformer {
      */
     private String ruleChainName;
 
-    public HellworldMethodTransformer(ClassTransformer _transformer, MethodDefine _methodDefine, String _ruleChainName) {
+    public HellworldMethodTransformer(ClassTransformer _transformer, MethodDefine _methodDefine) {
         super(_transformer, _methodDefine);
     }
 
     @Override
-    public MethodNode packMethodNode() {
-        this.methodNode = new MethodNode(
-                this.methodDefine.getAccess(),
-                this.methodDefine.getName(),
-                this.methodDefine.getDescriptor(),
-                this.methodDefine.getSignature(),
-                this.methodDefine.getExceptions()
-        );
-        InsnList il = methodNode.instructions;
+    public void packMethodNode() {
+        InsnList il = this.methodNode.instructions;
         LabelNode labelA = new LabelNode();
-        //Need add into the labelList firstly.
-        this.labelList.add(labelA.getLabel());
+        //Need add into the labelNodeList firstly.
+        this.labelNodeList.add(labelA);
         il.add(labelA);
         //Line number for the block.
-        il.add(new LineNumberNode(39, labelA));
+//        il.add(new LineNumberNode(39, labelA));
 
         FieldInsnNode logNode = new FieldInsnNode(
                 Opcodes.GETSTATIC,
@@ -62,12 +55,12 @@ public class HellworldMethodTransformer extends AddMethodTransformer {
         il.add(new MethodInsnNode(
                 Opcodes.INVOKEINTERFACE,
                 Type.getInternalName(Logger.class),
-                "log",
-                Type.getMethodDescriptor(Type.getType(Void.class), Type.getType(String.class), Type.getType(Object.class))
+                "info",
+                Type.getMethodDescriptor(Type.getType(Void.TYPE), Type.getType(String.class), Type.getType(Object.class))
         ));
 
         LabelNode labelB = new LabelNode();
-        this.labelList.add(labelB.getLabel());
+        this.labelNodeList.add(labelB);
         il.add(labelB);
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         FieldInsnNode serviceNode = new FieldInsnNode(
@@ -93,7 +86,7 @@ public class HellworldMethodTransformer extends AddMethodTransformer {
         il.add(new VarInsnNode(Opcodes.ASTORE, 3));
 
         LabelNode labelC = new LabelNode();
-        this.labelList.add(labelC.getLabel());
+        this.labelNodeList.add(labelC);
         il.add(labelC);
         il.add(new TypeInsnNode(
                 Opcodes.NEW,
@@ -104,12 +97,12 @@ public class HellworldMethodTransformer extends AddMethodTransformer {
                 Opcodes.INVOKESPECIAL,
                 Type.getInternalName(GeneralContentResult.class),
                 "<init>",
-                Type.getMethodDescriptor(Type.getType(Void.class))
+                Type.getMethodDescriptor(Type.getType(Void.TYPE))
         ));
         il.add(new VarInsnNode(Opcodes.ASTORE, 4));
 
         LabelNode labelD = new LabelNode();
-        this.labelList.add(labelD.getLabel());
+        this.labelNodeList.add(labelD);
         il.add(labelD);
         il.add(new VarInsnNode(Opcodes.ALOAD, 4));
         il.add(new LdcInsnNode(ResultCode.OPERATION_SUCCESS));
@@ -117,11 +110,11 @@ public class HellworldMethodTransformer extends AddMethodTransformer {
                 Opcodes.INVOKEVIRTUAL,
                 Type.getInternalName(GeneralContentResult.class),
                 "setResultCode",
-                Type.getMethodDescriptor(Type.getType(Void.class), Type.getType(String.class))
+                Type.getMethodDescriptor(Type.getType(Void.TYPE), Type.getType(String.class))
         ));
 
         LabelNode labelE = new LabelNode();
-        this.labelList.add(labelE.getLabel());
+        this.labelNodeList.add(labelE);
         il.add(labelE);
         il.add(new VarInsnNode(Opcodes.ALOAD, 4));
         il.add(new VarInsnNode(Opcodes.ALOAD, 3));
@@ -129,18 +122,17 @@ public class HellworldMethodTransformer extends AddMethodTransformer {
                 Opcodes.INVOKEVIRTUAL,
                 Type.getInternalName(GeneralContentResult.class),
                 "setResultContent",
-                Type.getMethodDescriptor(Type.getType(Void.class), Type.getType(Object.class))
+                Type.getMethodDescriptor(Type.getType(Void.TYPE), Type.getType(Object.class))
         ));
 
         LabelNode labelF = new LabelNode();
-        this.labelList.add(labelF.getLabel());
+        this.labelNodeList.add(labelF);
         il.add(labelF);
         il.add(new VarInsnNode(Opcodes.ALOAD, 4));
         il.add(new InsnNode(Opcodes.ARETURN));
 
         LabelNode labelG = new LabelNode();
-        this.labelList.add(labelG.getLabel());
+        this.labelNodeList.add(labelG);
         il.add(labelG);
-        return this.methodNode;
     }
 }
