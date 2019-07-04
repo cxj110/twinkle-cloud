@@ -3,7 +3,11 @@ package com.twinkle.cloud.common.asm.data;
 import com.twinkle.cloud.common.asm.utils.TypeUtil;
 import com.twinkle.cloud.common.data.GeneralContentResult;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.springframework.util.CollectionUtils;
 
@@ -23,14 +27,18 @@ import java.util.Map;
  */
 @Data
 @Slf4j
+@NoArgsConstructor
+@RequiredArgsConstructor
 public class MethodDefine implements Define {
     /**
      * Method's access.
      */
+    @NonNull
     private int access;
     /**
      * Class Name.
      */
+    @NonNull
     private String name;
     /**
      * Parameters' list.
@@ -49,6 +57,7 @@ public class MethodDefine implements Define {
     /**
      * Return Type.
      */
+    @NonNull
     private TypeDefine returnTypeDefine;
     /**
      * The Exception Type define list.
@@ -62,6 +71,20 @@ public class MethodDefine implements Define {
      * Local Parameters.
      */
     private List<ParameterDefine> localParameterDefineList;
+
+    /**
+     * Get the class define.
+     */
+    private ClassDefine classDefine;
+
+    /**
+     * Max Stacks.
+     */
+    private int maxStacks;
+    /**
+     * Max Local attributes.
+     */
+    private int maxLocals;
 
     /**
      * Add Parameter define into the parameter list.
@@ -95,7 +118,7 @@ public class MethodDefine implements Define {
      *
      * @param _annotationDefine
      */
-    public void AddAnnotationDefine(AnnotationDefine... _annotationDefine){
+    public void addAnnotationDefine(AnnotationDefine... _annotationDefine){
         if(CollectionUtils.isEmpty(this.annotationDefineList)) {
             this.annotationDefineList = new ArrayList<>();
         }
@@ -111,7 +134,7 @@ public class MethodDefine implements Define {
      * @return
      */
     public String getDescriptor() {
-        if(this.getDescriptor() == null) {
+        if(this.descriptor == null) {
             this.setDescriptor(this.packDescriptor());
         }
         return this.descriptor;
@@ -123,7 +146,7 @@ public class MethodDefine implements Define {
      * @return
      */
     public String getSignature() {
-        if(this.getSignature() == null) {
+        if(this.signature == null) {
             this.setSignature(this.packDetailSignature());
         }
         return this.signature;
@@ -172,11 +195,11 @@ public class MethodDefine implements Define {
      */
     private Type getReturnType() {
         if(this.returnTypeDefine == null) {
-            return Type.getType(Void.class);
+            return Type.getType(Void.TYPE);
         }
         Class<?> tempClass = this.returnTypeDefine.getTypeClass();
         if(tempClass == null) {
-            return Type.getType(Void.class);
+            return Type.getType(Void.TYPE);
         }
         return Type.getType(tempClass);
     }
@@ -202,6 +225,36 @@ public class MethodDefine implements Define {
             return "";
         }
         return tempBuilder.toString();
+    }
+
+    /**
+     * Get invisible init method define for some class.
+     *
+     * @param _classDefine
+     * @return
+     */
+    public static MethodDefine getInitMethodDefine(){
+        MethodDefine tempDefine = new MethodDefine(
+                Opcodes.ACC_PUBLIC,
+                "<init>",
+                new TypeDefine(Void.TYPE)
+        );
+
+        return tempDefine;
+    }
+
+    /**
+     * Get log's initialize static method.
+     *
+     * @return
+     */
+    public static MethodDefine getLogInitMethodDefine(){
+        MethodDefine tempDefine = new MethodDefine(
+                Opcodes.ACC_STATIC,
+                "<clinit>",
+                new TypeDefine(Void.TYPE)
+        );
+        return tempDefine;
     }
 
     public static void main(String[] _args) {

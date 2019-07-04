@@ -5,6 +5,8 @@ import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -24,7 +26,7 @@ public class ParameterDefine implements Define {
      * Class Parameter: public/protect/private, static, final....
      * Method Parameter: final...
      */
-    private int access;
+    private int access = 0;
     /**
      * Parameter Name.
      */
@@ -45,7 +47,26 @@ public class ParameterDefine implements Define {
      */
     private int endLabelIndex;
     /**
+     * The initial Value for this parameter.
+     */
+    private Object intialValue;
+    /**
      * The annotations of this parameter.
      */
     private List<AnnotationDefine> annotationDefineList;
+
+    /**
+     * Add annotation define.
+     *
+     * @param _annotationDefine
+     */
+    public void addAnnotationDefine(final AnnotationDefine... _annotationDefine){
+        if(_annotationDefine == null || _annotationDefine.length ==0) {
+            return;
+        }
+        if(this.annotationDefineList == null) {
+            this.annotationDefineList = new ArrayList<>();
+        }
+        this.annotationDefineList.addAll(Arrays.asList(_annotationDefine));
+    }
 }

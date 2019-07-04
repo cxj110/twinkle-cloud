@@ -5,17 +5,14 @@ import com.twinkle.cloud.common.asm.data.MethodDefine;
 import com.twinkle.cloud.common.asm.data.ParameterDefine;
 import com.twinkle.cloud.common.asm.utils.TypeUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Label;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.LabelNode;
-import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.*;
 import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.lang.reflect.Modifier;
+import java.util.*;
 
 /**
  * Function: TODO ADD FUNCTION. <br/>
@@ -43,7 +40,7 @@ public abstract class AddMethodTransformer extends ClassTransformer {
     /**
      * The Label List for this method.
      */
-    protected List<Label> labelList;
+    protected List<LabelNode> labelNodeList;
     /**
      * The class node.
      */
@@ -53,7 +50,21 @@ public abstract class AddMethodTransformer extends ClassTransformer {
         super(_transformer);
         this.classTransformer = _transformer;
         this.methodDefine = _methodDefine;
-        this.labelList = new ArrayList<>();
+        this.labelNodeList = new ArrayList<>();
+        this.initialize();
+    }
+
+    /**
+     * Initialize the method node.
+     */
+    private void initialize(){
+        this.methodNode = new MethodNode(
+                this.methodDefine.getAccess(),
+                this.methodDefine.getName(),
+                this.methodDefine.getDescriptor(),
+                this.methodDefine.getSignature(),
+                this.methodDefine.getExceptions()
+        );
     }
 
     @Override
@@ -77,10 +88,37 @@ public abstract class AddMethodTransformer extends ClassTransformer {
         }
 
         if (!isPresent) {
-            this.methodNode = this.packMethodNode();
-            this.visitMethodAnnotations();
-            this.visitMethodParameters();
-            this.visitLocalParameters();
+            this.packMethodNode();
+            //Set the method's annotations.
+            this.methodNode.visibleAnnotations = this.packAnnotationNodeByDefine(this.methodDefine.getAnnotationDefineList());
+            //Set the method's parameters
+            Map<ParameterNode, List<AnnotationNode>> tempParameterMap = this.visitMethodParameters();
+
+            Iterator<Map.Entry<ParameterNode, List<AnnotationNode>>> tempEntries = tempParameterMap.entrySet().iterator();
+            List<ParameterNode> tempParameterNodeList = new ArrayList<>(tempParameterMap.size());
+            List<AnnotationNode>[] tempAnnotationListArray = new ArrayList[tempParameterMap.size()];
+            int tempIndex = 0;
+            while (tempEntries.hasNext()) {
+                Map.Entry<ParameterNode, List<AnnotationNode>> entry = tempEntries.next();
+                tempParameterNodeList.add(entry.getKey());
+                tempAnnotationListArray[tempIndex] = entry.getValue();
+                tempIndex ++;
+            }
+
+            this.methodNode.parameters = tempParameterNodeList;
+            //Set the parameter's annotations.
+            this.methodNode.visibleParameterAnnotations = tempAnnotationListArray;
+            //set the local parameters. static method no need "this" parameter.
+            if(Modifier.isStatic(this.methodDefine.getAccess())){
+                this.methodNode.localVariables = this.visitGeneralLocalParameters(0);
+            } else {
+                this.methodNode.localVariables = this.visitLocalParameters();
+            }
+            this.methodNode.maxLocals = this.methodNode.localVariables.size();
+            this.methodNode.maxStack = this.methodNode.maxLocals;
+
+            this.methodNode.accept(_classNode);
+            super.transform(_classNode);
         }
     }
 
@@ -89,91 +127,86 @@ public abstract class AddMethodTransformer extends ClassTransformer {
      *
      * @return
      */
-    public abstract MethodNode packMethodNode();
-
-    /**
-     * Visit the Method's Annotations.
-     */
-    private void visitMethodAnnotations() {
-        if (CollectionUtils.isEmpty(this.methodDefine.getAnnotationDefineList())) {
-            log.debug("Do not find Method[{}]'s Annotations definitions.", this.methodDefine.getName());
-            return;
-        }
-        for(AnnotationDefine tempDefine : this.methodDefine.getAnnotationDefineList()) {
-            AnnotationVisitor tempVisitor = this.methodNode.visitAnnotation(
-                    Type.getDescriptor(tempDefine.getAnnotationClass()),
-                    true
-            );
-
-            if (CollectionUtils.isEmpty(tempDefine.getValuesMap())) {
-                log.debug("Do not find Method[{}]'s Annotation[{}] values.", this.methodDefine.getName(), tempDefine.getAnnotationClass());
-                continue;
-            }
-            //Add Annotation's Parameters and the mapping Values.
-            tempDefine.getValuesMap().forEach(
-                    (k, v) -> tempVisitor.visit(k, v));
-        }
-    }
+    public abstract void packMethodNode();
 
     /**
      * Visit the method's parameters.
      */
-    private void visitMethodParameters() {
+    private Map<ParameterNode, List<AnnotationNode>> visitMethodParameters() {
+        Map<ParameterNode, List<AnnotationNode>> tempMap = new LinkedHashMap<>(8);
         if (CollectionUtils.isEmpty(this.methodDefine.getParameterDefineList())) {
-            return;
+            return tempMap;
         }
-        int tempIndex = 0;
+
         for (ParameterDefine tempDefine : this.methodDefine.getParameterDefineList()) {
-            this.methodNode.visitParameter(
-                    tempDefine.getName(),
-                    tempDefine.getAccess()
-            );
-            //Update the Parameter Index.
-            tempIndex ++;
-
-            List<AnnotationDefine> tempAnnotationDefineList = tempDefine.getAnnotationDefineList();
-            if (CollectionUtils.isEmpty(tempAnnotationDefineList)) {
-                log.debug("Do not find Method[{}]-Parameter[{}]-Annotations.", this.methodDefine.getName(), tempDefine.getName());
-                continue;
-            }
-
-            for (AnnotationDefine tempAnnotationDefine : tempAnnotationDefineList) {
-                AnnotationVisitor tempVisitor = this.methodNode.visitParameterAnnotation(
-                        tempIndex,
-                        Type.getDescriptor(tempAnnotationDefine.getAnnotationClass()),
-                        true
-                );
-                if (CollectionUtils.isEmpty(tempAnnotationDefine.getValuesMap())) {
-                    log.debug("Do not find Method[{}]-Parameter[{}]-Annotation[{}]'s values.", this.methodDefine.getName(), tempDefine.getName(), tempAnnotationDefine.getAnnotationClass());
-                    continue;
-                }
-                //Add Annotation's Parameters and the mapping Values.
-                tempAnnotationDefine.getValuesMap().forEach(
-                        (k, v) -> tempVisitor.visit(k, v));
-            }
+            ParameterNode tempNode = new ParameterNode(tempDefine.getName(),tempDefine.getAccess());
+            tempMap.put(tempNode, this.packAnnotationNodeByDefine(tempDefine.getAnnotationDefineList()));
         }
+        return tempMap;
     }
 
     /**
-     * Visit all the local Parameters.
+     * Pack the AnnotationNode with the Annotation Define list.
+     *
+     * @param _defineList
+     * @return
      */
-    private void visitLocalParameters() {
-        // "this" will be initialized as 0 index all times.
-        this.methodNode.visitLocalVariable(
+    private List<AnnotationNode> packAnnotationNodeByDefine(List<AnnotationDefine> _defineList){
+        List<AnnotationNode> tempAnnotationNodeList = new ArrayList<>();
+        if (CollectionUtils.isEmpty(_defineList)) {
+            log.debug("Did not find Method[{}]-Annotations.", this.methodDefine.getName());
+            return tempAnnotationNodeList;
+        }
+        for (AnnotationDefine tempAnnotationDefine : _defineList) {
+            AnnotationNode tempAnnotationNode = new AnnotationNode(Type.getDescriptor(tempAnnotationDefine.getAnnotationClass()));
+            if (CollectionUtils.isEmpty(tempAnnotationDefine.getValuesMap())) {
+                log.debug("Do not find Method[{}]-Annotation[{}]'s values.", this.methodDefine.getName(), tempAnnotationDefine.getAnnotationClass());
+                tempAnnotationNodeList.add(tempAnnotationNode);
+                continue;
+            }
+            List<Object> tempValuesList = new ArrayList<>();
+            //Add Annotation's Parameters and the mapping Values.
+            tempAnnotationDefine.getValuesMap().forEach((k, v) -> {tempValuesList.add(k); tempValuesList.add(v);});
+            tempAnnotationNode.values = tempValuesList;
+            tempAnnotationNodeList.add(tempAnnotationNode);
+        }
+        return tempAnnotationNodeList;
+    }
+
+    /**
+     * Add "this" into the local Parameters.
+     */
+    private List<LocalVariableNode> visitLocalParameters() {
+        List<LocalVariableNode> tempList = new ArrayList<>();
+        tempList.add(new LocalVariableNode(
                 "this",
                 this.classNode.name,
                 this.classNode.signature,
-                this.getLabelFromLabelNode(this.methodNode.instructions.getFirst()),
-                this.getLabelFromLabelNode(this.methodNode.instructions.getLast()),
+                (LabelNode)this.methodNode.instructions.getFirst(),
+                (LabelNode)this.methodNode.instructions.getLast(),
                 0
-        );
+        ));
         log.debug("Added [this] parameter.");
+        tempList.addAll(this.visitGeneralLocalParameters(1));
+        return tempList;
+    }
+
+    /**
+     * Visit the Local Parameters.
+     *
+     * @param _startIndex
+     * @return
+     */
+    private List<LocalVariableNode> visitGeneralLocalParameters(int _startIndex) {
+        List<LocalVariableNode> tempList = new ArrayList<>();
         //Visit the Method parameter firstly.
         //The parameters of the method are the local ones as well.
-        this.visitLocalParameterList(this.methodDefine.getParameterDefineList(), 1);
+        tempList.addAll(this.visitLocalParameterList(this.methodDefine.getParameterDefineList(), _startIndex));
         //Visit the Method's Local Parameters.
         int tempIndex = this.methodNode.localVariables.size();
-        this.visitLocalParameterList(this.methodDefine.getLocalParameterDefineList(), tempIndex);
+        tempList.addAll(this.visitLocalParameterList(this.methodDefine.getLocalParameterDefineList(), tempIndex));
+
+        return tempList;
     }
 
     /**
@@ -182,21 +215,23 @@ public abstract class AddMethodTransformer extends ClassTransformer {
      * @param _defineList
      * @param _startIndex
      */
-    private void visitLocalParameterList(List<ParameterDefine> _defineList, int _startIndex) {
+    private List<LocalVariableNode> visitLocalParameterList(List<ParameterDefine> _defineList, int _startIndex) {
+        List<LocalVariableNode> tempList = new ArrayList<>();
         if (CollectionUtils.isEmpty(_defineList)) {
-            return;
+            return tempList;
         }
         int tempIndex = _startIndex;
         for (ParameterDefine tempItem : _defineList) {
-            this.methodNode.visitLocalVariable(
+            tempList.add(new LocalVariableNode(
                     tempItem.getName(),
                     Type.getDescriptor(tempItem.getTypeDefine().getTypeClass()),
                     TypeUtil.getTypeSignature(tempItem.getTypeDefine()),
-                    this.getLabelFromList(tempItem.getStartLabelIndex()),
-                    this.getLabelFromList(tempItem.getEndLabelIndex()),
-                    tempIndex++
+                    this.getLabelNodeFromList(tempItem.getStartLabelIndex()),
+                    this.getLabelNodeFromList(tempItem.getEndLabelIndex()),
+                    tempIndex++)
             );
         }
+        return tempList;
     }
 
     /**
@@ -219,15 +254,15 @@ public abstract class AddMethodTransformer extends ClassTransformer {
      * @param _index
      * @return
      */
-    private Label getLabelFromList(int _index) {
-        if (CollectionUtils.isEmpty(this.labelList)) {
+    private LabelNode getLabelNodeFromList(int _index) {
+        if (CollectionUtils.isEmpty(this.labelNodeList)) {
             log.warn("The Label list is empty, so return a new Label.");
-            return new Label();
+            return new LabelNode();
         }
-        if (_index >= this.labelList.size()) {
-            log.warn("The index [{}] exceed the size of the label list, so return a new Label.", _index);
-            return new Label();
+        if (_index >= this.labelNodeList.size()) {
+            log.warn("The index [{}] exceed the size of the label list, so return the last Label.", _index);
+            return this.labelNodeList.get(this.labelNodeList.size() - 1);
         }
-        return this.labelList.get(_index);
+        return this.labelNodeList.get(_index);
     }
 }

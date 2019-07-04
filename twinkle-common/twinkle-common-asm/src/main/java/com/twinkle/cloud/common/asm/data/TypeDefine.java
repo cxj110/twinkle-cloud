@@ -23,13 +23,20 @@ import java.util.List;
 @NoArgsConstructor
 @RequiredArgsConstructor
 public class TypeDefine implements Define{
+    /**
+     * Type's Name, support GeneralContentResult<T>
+     *     GeneralContentResult<T extends List>
+     */
     private String name;
     /**
      * Type's class.
      */
     @NonNull
     private Class<?> typeClass;
-
+    /**
+     * Generic Type
+     */
+    private EnumGenericType genericType = EnumGenericType.IS;
     /**
      * the Type list for class generic.
      */

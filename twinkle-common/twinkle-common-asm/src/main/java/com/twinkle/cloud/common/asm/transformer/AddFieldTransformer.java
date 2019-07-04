@@ -1,7 +1,10 @@
 package com.twinkle.cloud.common.asm.transformer;
 
 import com.twinkle.cloud.common.asm.data.AnnotationDefine;
+import com.twinkle.cloud.common.asm.data.FieldDefine;
+import com.twinkle.cloud.common.asm.utils.TypeUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
@@ -23,33 +26,37 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class AddFieldTransformer extends ClassTransformer {
-    private int fieldAccess;
-    private String fieldName;
-    private String fieldDesc;
-    private List<AnnotationDefine> annotationDefineList;
+    /**
+     * Field Definition.
+     */
+    private FieldDefine fieldDefine;
 
-    public AddFieldTransformer(ClassTransformer _transformer, int _fieldAccess,
-                               String _fieldName, String _fieldDesc, List<AnnotationDefine> _annotationDefineList) {
+    public AddFieldTransformer(ClassTransformer _transformer, FieldDefine _fieldDefine) {
         super(_transformer);
-        this.fieldAccess = _fieldAccess;
-        this.fieldName = _fieldName;
-        this.fieldDesc = _fieldDesc;
-        this.annotationDefineList = _annotationDefineList;
+        this.fieldDefine = _fieldDefine;
     }
 
     @Override
     public void transform(ClassNode _classNode) {
         boolean isPresent = false;
         for (FieldNode tempFieldNode : _classNode.fields) {
-            if (this.fieldName.equals(tempFieldNode.name)) {
+            if (this.fieldDefine.getName().equals(tempFieldNode.name)) {
                 isPresent = true;
                 break;
             }
         }
         if (!isPresent) {
-            FieldNode tempFieldNode = new FieldNode(fieldAccess, fieldName, fieldDesc, null, null);
-            tempFieldNode.visibleAnnotations.addAll(this.getAnnotationNode());
-            _classNode.fields.add(tempFieldNode);
+            FieldNode tempFieldNode = new FieldNode(
+                    this.fieldDefine.getAccess(),
+                    this.fieldDefine.getName(),
+                    Type.getDescriptor(this.fieldDefine.getTypeDefine().getTypeClass()),
+                    TypeUtil.getTypeSignature(this.fieldDefine.getTypeDefine()),
+                    this.fieldDefine.getIntialValue());
+
+            tempFieldNode.visibleAnnotations = this.getAnnotationNode();
+            //Add Class Visitor.
+            tempFieldNode.accept(_classNode);
+//            _classNode.fields.add(tempFieldNode);
         }
         super.transform(_classNode);
     }
@@ -59,11 +66,11 @@ public class AddFieldTransformer extends ClassTransformer {
      *
      * @return
      */
-    private List<AnnotationNode> getAnnotationNode(){
-        if(CollectionUtils.isEmpty(this.annotationDefineList)) {
+    private List<AnnotationNode> getAnnotationNode() {
+        if (CollectionUtils.isEmpty(this.fieldDefine.getAnnotationDefineList())) {
             return new ArrayList<>();
         }
-        return this.annotationDefineList.stream().map(this::packAnnotationNode).collect(Collectors.toList());
+        return this.fieldDefine.getAnnotationDefineList().stream().map(this::packAnnotationNode).collect(Collectors.toList());
     }
 
     /**
@@ -72,16 +79,17 @@ public class AddFieldTransformer extends ClassTransformer {
      * @param _define
      * @return
      */
-    private AnnotationNode packAnnotationNode(AnnotationDefine _define){
+    private AnnotationNode packAnnotationNode(AnnotationDefine _define) {
         log.debug("Going to add field's annotation {}", _define);
-        AnnotationNode tempNode = new AnnotationNode(_define.getAnnotationClass().getCanonicalName());
+        AnnotationNode tempNode = new AnnotationNode(Type.getDescriptor(_define.getAnnotationClass()));
         Map<String, Object> tempItemMap = _define.getValuesMap();
-        if(CollectionUtils.isEmpty(tempItemMap)) {
+        if (CollectionUtils.isEmpty(tempItemMap)) {
             return tempNode;
         }
-        tempItemMap.forEach((k, v) -> {
-            tempNode.visit(k, v);
-        });
+        List<Object> tempValuesList = new ArrayList<>();
+        tempItemMap.forEach((k, v) -> {tempValuesList.add(k); tempValuesList.add(v);});
+        tempNode.values = tempValuesList;
+//        tempItemMap.forEach((k, v) -> tempNode.visit(k, v));
         return tempNode;
     }
 }
